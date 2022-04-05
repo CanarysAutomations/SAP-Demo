@@ -1,4 +1,4 @@
-# Github Collaboration - Fundamentals Workshop - Day 1
+# Github Collaboration - Fundamentals Workshop 
 
 ## Agenda
 
