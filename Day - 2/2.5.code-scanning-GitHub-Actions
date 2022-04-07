@@ -1,0 +1,159 @@
+## Code scanning
+
+Code scanning enables developers to integrate security analysis tooling into their developing workflow. In this exercise, we will focus on the CodeQL static analysis tooling that helps developers detect common vulnerabilities and coding errors.
+
+### Contents
+
+- [Enabling code-scanning](#enabling-code-scanning)
+- [Reviewing any failed analysis job](#reviewing-any-failed-analysis-job)
+- [Using context and expressions to modify build](#using-context-and-expressions-to-modify-build)
+
+### _**Practical Exercise 1**_
+
+#### Enabling code scanning
+
+1. Go to the `Code scanning alerts` section in the `Security` tab.
+
+2. Start the `Set up this workflow` step in the `CodeQL Analysis` card.
+
+3. Review the created Action workflow file `codeql-analysis.yml` and choose `Start commit` to accept the default proposed workflow.
+
+```
+#Sample CodeQL Workflow to scan C# and Javascript CodeBases
+
+# For most projects, this workflow file will not need changing; you simply need
+# to commit it to your repository.
+#
+# You may wish to alter this file to override the set of languages analyzed,
+# or to provide custom queries or build logic.
+#
+# ******** NOTE ********
+# We have attempted to detect the languages in your repository. Please check
+# the `language` matrix defined below to confirm you have the correct set of
+# supported CodeQL languages.
+#
+name: "CodeQL"
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    # The branches below must be a subset of the branches above
+    branches: [ main ]
+  schedule:
+    - cron: '30 9 * * 2'
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: [ windowscert-10]
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'csharp', 'javascript' ]
+        # CodeQL supports [ 'cpp', 'csharp', 'go', 'java', 'javascript', 'python' ]
+        # Learn more about CodeQL language support at https://git.io/codeql-language-support
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    # Initializes the CodeQL tools for scanning.
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v1
+      with:
+        languages: ${{ matrix.language }}
+        # If you wish to specify custom queries, you can do so here or in a config file.
+        # By default, queries listed here will override any specified in a config file.
+        # Prefix the list here with "+" to use these queries and those in the config file.
+        # queries: ./path/to/local/query, your-org/your-repo/queries@main
+
+    # Autobuild attempts to build any compiled languages  (C/C++, C#, or Java).
+    # If this step fails, then you should remove it and run the build manually (see below)
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@v1
+
+    # ℹ️ Command-line programs to run using the OS shell.
+    # 📚 https://git.io/JvXDl
+
+    # ✏️ If the Autobuild fails above, remove it and uncomment the following three lines
+    #    and modify them (or add more) to build your code if your project
+    #    uses a compiled language
+
+    #- run: |
+    #   make bootstrap
+    #   make release
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v1
+```
+
+
+
+4. Head over to the `Actions` tab to see the created workflow in action. Click on the workflow to view details and status for each analysis job.
+
+#### Reviewing any failed analysis job
+
+CodeQL requires a build of compiled languages, and an analysis job can fail if our *autobuilder* is unable to build a program to extract an analysis database.
+
+1. Inside the workflow you'll see a list of jobs on the left.  Click on the Java job to view the logging output and review any errors to determine if there's a build failure.
+
+2. The build failure appears to be caused by a JDK version mismatch. Our project targets JDK version 15. How can we check the Java version that the GitHub hosted runner is using? Does the logging output provide any helpful information?
+
+    <details>
+    <summary>Solution</summary>
+
+    - GitHub saves workflow files in the `.github/workflows` directory of your repository. You can add a command to the workflow that returns the Java version.
+
+    ```yaml
+    - run: |
+        echo "java version"
+        java -version
+    ```
+
+    </details>
+
+3. Resolve the JDK version issue by using the `setup-java` Action to specify a version.
+
+    <details>
+    <summary>Solution</summary>
+
+        uses: actions/setup-java@v1
+        with:
+            java-version: 15
+
+    </details>
+
+
+#### Using context and expressions to modify build
+
+How would you [modify](https://docs.github.com/en/free-pro-team@latest/actions/reference/context-and-expression-syntax-for-github-actions) the workflow such that the autobuild step only targets Java?
+
+  <details>
+  <summary>Solution</summary>
+
+  You can run this step for only `Java` analysis when you use the `if` expression and `matrix` context.
+
+  ```yaml
+  - if: matrix.language == 'java'  
+    uses: github/codeql-action/autobuild@v1
+  ```
+  </details>
+
+#### Reviewing and managing results
+
+1. Go to the `Code scanning results` in the `Security` tab.
+
+2. For a result, determine:
+    1. The issue reported.
+    1. The corresponding query id.
+    1. Its `Common Weakness Enumeration` identifier.
+    1. The recommendation to solve the issue.
+    1. The path from the `source` to the `sink`. Where would you apply a fix?
+    1. Is it a *true positive* or *false positive*?
+
